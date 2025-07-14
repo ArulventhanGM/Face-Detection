@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Recognition Web App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: white;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            color: rgba(255,255,255,0.9);
+            font-size: 1.1em;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .upload-section {
+            text-align: center;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            margin: 20px 0;
+            background: #f8f9ff;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #28a745;
+            background: #e8f5e8;
+        }
+
+        .upload-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .tolerance-control {
+            margin: 20px 0;
+        }
+
+        .tolerance-control label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .tolerance-slider {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .known-faces-section h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .faces-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .face-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+        }
+
+        .face-card h4 {
+            margin-bottom: 8px;
+            color: #495057;
+        }
+
+        .face-card p {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+
+        .results-section {
+            margin-top: 30px;
+        }
+
+        .results-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .statistics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9ff;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+
+        .people-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+        }
+
+        .person-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            border-left: 4px solid #28a745;
+        }
+
+        .person-card.unknown {
+            border-left-color: #ffc107;
+        }
+
+        .person-name {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 8px;
+        }
+
+        .person-details {
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+
+        .annotated-image {
+            max-width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            margin: 20px 0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            border: 1px solid #f5c6cb;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            border: 1px solid #c3e6cb;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎭 Face Recognition Web App</h1>
+            <p class="subtitle">Upload a group photo to identify people using AI</p>
+        </header>
+
+        <div class="main-content">
+            <div class="card upload-section">
+                <h2>📤 Upload Group Photo</h2>
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📷</div>
+                    <p>Drag and drop your image here or click to select</p>
+                    <input type="file" id="fileInput" class="file-input" accept="image/*">
+                    <button class="btn" onclick="document.getElementById('fileInput').click()">
+                        Choose Image
+                    </button>
+                </div>
+
+                <div class="tolerance-control">
+                    <label for="toleranceSlider">Recognition Tolerance:</label>
+                    <input type="range" id="toleranceSlider" class="tolerance-slider" min="0.3" max="1.0" step="0.1" value="0.5">
+                    <div>Current: <span id="toleranceValue">0.5</span> (Lower = More Strict)</div>
+                </div>
+
+                <button class="btn" id="uploadBtn" onclick="uploadImage()" disabled>
+                    🚀 Process Image
+                </button>
+                <button class="btn" onclick="refreshEncodings()">
+                    🔄 Refresh Face Database
+                </button>
+            </div>
+
+            <div class="card known-faces-section">
+                <h3>👥 Known Faces Database</h3>
+                <div id="knownFacesInfo">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Loading known faces...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="results" class="results-section hidden">
+            <div class="results-card">
+                <h2>📊 Recognition Results</h2>
+                <div id="statistics" class="statistics"></div>
+                <div id="peopleResults" class="people-grid"></div>
+                <div id="annotatedImageContainer">
+                    <h3>🖼️ Annotated Image</h3>
+                    <img id="annotatedImage" class="annotated-image hidden" alt="Annotated group photo">
+                </div>
+            </div>
+        </div>
+
+        <div id="messages"></div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            loadKnownFaces();
+            updateToleranceDisplay();
+        });
+
+        function setupEventListeners() {
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+            const toleranceSlider = document.getElementById('toleranceSlider');
+
+            // File input change
+            fileInput.addEventListener('change', handleFileSelect);
+
+            // Drag and drop
+            uploadArea.addEventListener('dragover', handleDragOver);
+            uploadArea.addEventListener('dragleave', handleDragLeave);
+            uploadArea.addEventListener('drop', handleDrop);
+
+            // Tolerance slider
+            toleranceSlider.addEventListener('input', updateToleranceDisplay);
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                selectedFile = file;
+                updateUploadArea(file.name);
+                document.getElementById('uploadBtn').disabled = false;
+            }
+        }
+
+        function handleDragOver(event) {
+            event.preventDefault();
+            event.currentTarget.classList.add('dragover');
+        }
+
+        function handleDragLeave(event) {
+            event.currentTarget.classList.remove('dragover');
+        }
+
+        function handleDrop(event) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('dragover');
+            
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                selectedFile = files[0];
+                updateUploadArea(files[0].name);
+                document.getElementById('uploadBtn').disabled = false;
+            }
+        }
+
+        function updateUploadArea(filename) {
+            const uploadArea = document.getElementById('uploadArea');
+            uploadArea.innerHTML = `
+                <div class="upload-icon">✅</div>
+                <p>Selected: ${filename}</p>
+                <button class="btn" onclick="document.getElementById('fileInput').click()">
+                    Choose Different Image
+                </button>
+            `;
+        }
+
+        function updateToleranceDisplay() {
+            const slider = document.getElementById('toleranceSlider');
+            const display = document.getElementById('toleranceValue');
+            display.textContent = slider.value;
+        }
+
+        async function uploadImage() {
+            if (!selectedFile) {
+                showMessage('Please select an image first', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('image', selectedFile);
+            formData.append('tolerance', document.getElementById('toleranceSlider').value);
+
+            try {
+                showLoading();
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                hideLoading();
+
+                if (result.success) {
+                    displayResults(result);
+                    showMessage('Image processed successfully!', 'success');
+                } else {
+                    showMessage(result.error || 'Error processing image', 'error');
+                }
+            } catch (error) {
+                hideLoading();
+                showMessage('Network error: ' + error.message, 'error');
+            }
+        }
+
+        async function loadKnownFaces() {
+            try {
+                const response = await fetch('/api/known-faces');
+                const data = await response.json();
+                displayKnownFaces(data);
+            } catch (error) {
+                document.getElementById('knownFacesInfo').innerHTML = 
+                    '<div class="error">Error loading known faces: ' + error.message + '</div>';
+            }
+        }
+
+        function displayKnownFaces(data) {
+            const container = document.getElementById('knownFacesInfo');
+            
+            if (data.total_faces === 0) {
+                container.innerHTML = `
+                    <div class="error">
+                        <h4>No known faces found</h4>
+                        <p>Please add face images to the 'known_faces' directory</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <div class="statistics">
+                    <div class="stat-item">
+                        <div class="stat-value">${data.total_faces}</div>
+                        <div class="stat-label">Known Faces</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">${data.encodings_cached ? '✅' : '❌'}</div>
+                        <div class="stat-label">Cached</div>
+                    </div>
+                </div>
+                <div class="faces-grid">
+            `;
+
+            data.faces.forEach(face => {
+                const metadata = face.metadata;
+                html += `
+                    <div class="face-card">
+                        <h4>${face.name}</h4>
+                        ${metadata ? `
+                            <p><strong>Role:</strong> ${metadata.role || 'N/A'}</p>
+                            <p><strong>Department:</strong> ${metadata.department || 'N/A'}</p>
+                            <p><strong>Email:</strong> ${metadata.email || 'N/A'}</p>
+                        ` : '<p>No metadata available</p>'}
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function displayResults(result) {
+            const resultsSection = document.getElementById('results');
+            const statisticsDiv = document.getElementById('statistics');
+            const peopleDiv = document.getElementById('peopleResults');
+            const annotatedImg = document.getElementById('annotatedImage');
+
+            // Show results section
+            resultsSection.classList.remove('hidden');
+
+            // Display statistics
+            const stats = result.statistics;
+            statisticsDiv.innerHTML = `
+                <div class="stat-item">
+                    <div class="stat-value">${stats.total_faces_detected}</div>
+                    <div class="stat-label">Total Faces</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${stats.known_faces}</div>
+                    <div class="stat-label">Known Faces</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${stats.unknown_faces}</div>
+                    <div class="stat-label">Unknown Faces</div>
+                </div>
+            `;
+
+            // Display people
+            let peopleHtml = '';
+            result.recognized_people.forEach(person => {
+                const isUnknown = person.status === 'unknown';
+                peopleHtml += `
+                    <div class="person-card ${isUnknown ? 'unknown' : ''}">
+                        <div class="person-name">${person.name}</div>
+                        <div class="person-details">
+                            ${isUnknown ? 
+                                '<p>⚠️ Unknown person</p>' : 
+                                `
+                                <p><strong>Role:</strong> ${person.role || 'N/A'}</p>
+                                <p><strong>Department:</strong> ${person.department || 'N/A'}</p>
+                                <p><strong>Email:</strong> ${person.email || 'N/A'}</p>
+                                <p><strong>Employee ID:</strong> ${person.employee_id || 'N/A'}</p>
+                                `
+                            }
+                        </div>
+                    </div>
+                `;
+            });
+            peopleDiv.innerHTML = peopleHtml;
+
+            // Display annotated image
+            if (result.annotated_image_url) {
+                annotatedImg.src = result.annotated_image_url;
+                annotatedImg.classList.remove('hidden');
+            }
+        }
+
+        async function refreshEncodings() {
+            try {
+                showLoading();
+                const response = await fetch('/api/refresh-encodings', {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                hideLoading();
+
+                if (response.ok) {
+                    showMessage('Face database refreshed successfully!', 'success');
+                    loadKnownFaces(); // Reload known faces
+                } else {
+                    showMessage(result.error || 'Error refreshing database', 'error');
+                }
+            } catch (error) {
+                hideLoading();
+                showMessage('Network error: ' + error.message, 'error');
+            }
+        }
+
+        function showMessage(message, type) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = type;
+            messageDiv.textContent = message;
+            messagesDiv.appendChild(messageDiv);
+
+            setTimeout(() => {
+                messagesDiv.removeChild(messageDiv);
+            }, 5000);
+        }
+
+        function showLoading() {
+            const uploadBtn = document.getElementById('uploadBtn');
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '<div class="spinner" style="width: 20px; height: 20px; display: inline-block; margin-right: 10px;"></div>Processing...';
+        }
+
+        function hideLoading() {
+            const uploadBtn = document.getElementById('uploadBtn');
+            uploadBtn.disabled = false;
+            uploadBtn.innerHTML = '🚀 Process Image';
+        }
+    </script>
+</body>
+</html>

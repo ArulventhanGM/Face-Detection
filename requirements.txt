@@ -1,0 +1,21 @@
+# Core face recognition libraries
+face-recognition
+opencv-python
+dlib
+
+# Web framework
+Flask
+flask-cors
+
+# Image processing
+Pillow
+numpy
+
+# Data handling
+pickle-mixin
+
+# Security
+Werkzeug
+
+# Optional: for better performance
+cmake
