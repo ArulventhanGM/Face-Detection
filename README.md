@@ -254,4 +254,3 @@ For questions or support, please:
 ---
 
 **Built with ❤️ using Python, Flask, and AI**
-"# Face-Detection" 
