@@ -5,6 +5,7 @@ import Navigation from './components/Navigation';
 import Dashboard from './pages/Dashboard';
 import AdminPanel from './pages/AdminPanel';
 import FaceRecognition from './pages/FaceRecognition';
+import CameraRecognition from './pages/CameraRecognition';
 import History from './pages/History';
 import './App.css';
 
@@ -19,6 +20,7 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/recognize" element={<FaceRecognition />} />
+            <Route path="/camera" element={<CameraRecognition />} />
             <Route path="/history" element={<History />} />
           </Routes>
         </main>

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
-import { 
-  Users, 
-  Camera, 
-  Clock, 
+import {
+  Users,
+  Camera,
+  Video,
+  Clock,
   HardDrive,
   TrendingUp,
   CheckCircle,
@@ -139,7 +140,7 @@ const Dashboard = () => {
         {/* Quick Actions */}
         <div className="quick-actions">
           <h2 style={{ marginBottom: '1rem', color: '#2d3748' }}>Quick Actions</h2>
-          <div className="grid grid-2">
+          <div className="grid grid-3">
             <div className="action-card" style={{ 
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               color: 'white',
@@ -161,7 +162,7 @@ const Dashboard = () => {
               </a>
             </div>
 
-            <div className="action-card" style={{ 
+            <div className="action-card" style={{
               background: 'linear-gradient(135deg, #38a169 0%, #2f855a 100%)',
               color: 'white',
               padding: '1.5rem',
@@ -169,16 +170,37 @@ const Dashboard = () => {
               textAlign: 'center'
             }}>
               <Camera size={32} style={{ marginBottom: '1rem' }} />
-              <h3>Recognize Faces</h3>
+              <h3>Upload & Recognize</h3>
               <p style={{ marginBottom: '1rem', opacity: 0.9 }}>
                 Upload images to identify and recognize faces
               </p>
-              <a 
-                href="/recognize" 
+              <a
+                href="/recognize"
                 className="btn btn-secondary"
                 style={{ textDecoration: 'none' }}
               >
                 Start Recognition
+              </a>
+            </div>
+
+            <div className="action-card" style={{
+              background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+              color: 'white',
+              padding: '1.5rem',
+              borderRadius: '12px',
+              textAlign: 'center'
+            }}>
+              <Video size={32} style={{ marginBottom: '1rem' }} />
+              <h3>Camera Recognition</h3>
+              <p style={{ marginBottom: '1rem', opacity: 0.9 }}>
+                Use your camera for real-time face recognition
+              </p>
+              <a
+                href="/camera"
+                className="btn btn-secondary"
+                style={{ textDecoration: 'none' }}
+              >
+                Open Camera
               </a>
             </div>
           </div>

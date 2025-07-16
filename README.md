@@ -124,20 +124,33 @@ FaceDetection/
 
 If you encounter issues during installation, especially with the `face_recognition` library:
 
-1. **Check [TROUBLESHOOTING.md](TROUBLESHOOTING.md)** for detailed solutions
-2. **Try the alternative setup**: `setup-backend-alternative.bat`
-3. **Use Docker**: `docker-compose up --build` (most reliable)
-4. **Use Conda** instead of pip for scientific packages
+**🚨 SETUPTOOLS ERROR FIX:**
+If you get "Cannot import 'setuptools.build_meta'" error, try these solutions in order:
 
-**Common Issues:**
-- Timeout errors → Use improved scripts with longer timeouts
-- Visual C++ Build Tools missing → Install from Microsoft
-- CMake not found → Download and install CMake
-- Python 3.13 compatibility → Use Python 3.9-3.11
+1. **Emergency Fix (Recommended)**:
+   ```bash
+   emergency-setup-backend.bat
+   ```
 
-### Troubleshooting
+2. **Docker Solution (Most Reliable)**:
+   ```bash
+   start-with-docker.bat
+   ```
 
-If you encounter issues during installation, check the [DEVELOPMENT.md](DEVELOPMENT.md) file for detailed troubleshooting steps.
+3. **Minimal Setup (No face_recognition)**:
+   ```bash
+   start-minimal.bat
+   ```
+
+**Other Common Issues:**
+- **Timeout errors** → Use improved scripts with longer timeouts
+- **Visual C++ Build Tools missing** → Install from Microsoft
+- **CMake not found** → Download and install CMake
+- **Python 3.13 compatibility** → Use Python 3.9-3.11
+
+**📖 Detailed Help:**
+- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Complete troubleshooting guide
+- [DEVELOPMENT.md](DEVELOPMENT.md) - Development guide
 
 ## Usage
 

@@ -1,17 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { apiService } from '../services/api';
-import { 
-  Upload, 
-  Users, 
-  Trash2, 
+import ExportModal from '../components/ExportModal';
+import {
+  Upload,
+  Users,
+  Trash2,
   Plus,
   User,
   Mail,
   Phone,
   Building,
   Badge,
-  RefreshCw
+  RefreshCw,
+  FileText,
+  Download,
+  CheckCircle,
+  AlertCircle,
+  X,
+  Share
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -20,7 +27,11 @@ const AdminPanel = () => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [bulkFiles, setBulkFiles] = useState([]);
+  const [bulkUploadProgress, setBulkUploadProgress] = useState({});
+  const [showExportModal, setShowExportModal] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     employee_id: '',
@@ -153,6 +164,141 @@ const AdminPanel = () => {
     setShowAddForm(false);
   };
 
+  // Bulk upload functionality
+  const onBulkDrop = useCallback((acceptedFiles) => {
+    const imageFiles = acceptedFiles.filter(file =>
+      file.type.startsWith('image/') && file.size <= 10 * 1024 * 1024 // 10MB limit
+    );
+
+    if (imageFiles.length !== acceptedFiles.length) {
+      toast.error(`${acceptedFiles.length - imageFiles.length} files were rejected (not images or too large)`);
+    }
+
+    setBulkFiles(prev => [...prev, ...imageFiles.map(file => ({
+      file,
+      id: Math.random().toString(36).substr(2, 9),
+      name: file.name.split('.')[0].replace(/[^a-zA-Z0-9\s]/g, '').trim(),
+      employee_id: '',
+      department: '',
+      position: '',
+      email: '',
+      phone: '',
+      status: 'pending', // pending, uploading, success, error
+      error: null
+    }))]);
+  }, []);
+
+  const { getRootProps: getBulkRootProps, getInputProps: getBulkInputProps, isDragActive: isBulkDragActive } = useDropzone({
+    onDrop: onBulkDrop,
+    accept: {
+      'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.bmp']
+    },
+    multiple: true,
+    maxSize: 10 * 1024 * 1024 // 10MB
+  });
+
+  const updateBulkFileData = (fileId, field, value) => {
+    setBulkFiles(prev => prev.map(file =>
+      file.id === fileId ? { ...file, [field]: value } : file
+    ));
+  };
+
+  const removeBulkFile = (fileId) => {
+    setBulkFiles(prev => prev.filter(file => file.id !== fileId));
+  };
+
+  const processBulkUpload = async () => {
+    if (bulkFiles.length === 0) {
+      toast.error('No files to upload');
+      return;
+    }
+
+    // Validate all files have required data
+    const invalidFiles = bulkFiles.filter(file => !file.name.trim());
+    if (invalidFiles.length > 0) {
+      toast.error('All files must have a name');
+      return;
+    }
+
+    setUploading(true);
+    let successCount = 0;
+    let errorCount = 0;
+
+    // Process files one by one to avoid overwhelming the server
+    for (const fileData of bulkFiles) {
+      if (fileData.status !== 'pending') continue;
+
+      try {
+        // Update status to uploading
+        setBulkFiles(prev => prev.map(f =>
+          f.id === fileData.id ? { ...f, status: 'uploading' } : f
+        ));
+
+        const uploadData = new FormData();
+        uploadData.append('image', fileData.file);
+        uploadData.append('name', fileData.name.trim());
+        uploadData.append('employee_id', fileData.employee_id.trim());
+        uploadData.append('department', fileData.department.trim());
+        uploadData.append('position', fileData.position.trim());
+        uploadData.append('email', fileData.email.trim());
+        uploadData.append('phone', fileData.phone.trim());
+
+        await apiService.admin.uploadFace(uploadData);
+
+        // Update status to success
+        setBulkFiles(prev => prev.map(f =>
+          f.id === fileData.id ? { ...f, status: 'success' } : f
+        ));
+
+        successCount++;
+
+        // Small delay to prevent overwhelming the server
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+      } catch (error) {
+        console.error(`Error uploading ${fileData.name}:`, error);
+        const errorMessage = error.response?.data?.message || 'Upload failed';
+
+        // Update status to error
+        setBulkFiles(prev => prev.map(f =>
+          f.id === fileData.id ? { ...f, status: 'error', error: errorMessage } : f
+        ));
+
+        errorCount++;
+      }
+    }
+
+    setUploading(false);
+
+    if (successCount > 0) {
+      toast.success(`Successfully uploaded ${successCount} face(s)`);
+      loadKnownFaces(); // Refresh the faces list
+    }
+
+    if (errorCount > 0) {
+      toast.error(`Failed to upload ${errorCount} face(s)`);
+    }
+  };
+
+  const clearBulkUpload = () => {
+    setBulkFiles([]);
+    setBulkUploadProgress({});
+  };
+
+  const downloadBulkTemplate = () => {
+    const csvContent = "name,employee_id,department,position,email,phone\n" +
+                      "John Doe,EMP001,Engineering,Software Engineer,john.doe@company.com,+1234567890\n" +
+                      "Jane Smith,EMP002,Marketing,Marketing Manager,jane.smith@company.com,+1234567891";
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'bulk_upload_template.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="admin-panel">
       <div className="card">
@@ -164,19 +310,68 @@ const AdminPanel = () => {
                 Manage known faces in the recognition system
               </p>
             </div>
-            <button 
-              onClick={loadKnownFaces}
-              className="btn btn-secondary"
-              disabled={loading}
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                onClick={() => setShowExportModal(true)}
+                className="btn btn-secondary"
+                disabled={loading}
+              >
+                <Share size={16} />
+                Export Database
+              </button>
+              <button
+                onClick={loadKnownFaces}
+                className="btn btn-secondary"
+                disabled={loading}
+              >
+                <RefreshCw size={16} />
+                Refresh
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Upload Mode Toggle */}
+        <div style={{ marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <button
+              onClick={() => {
+                setShowAddForm(false);
+                setShowBulkUpload(false);
+                setSelectedFile(null);
+                clearBulkUpload();
+              }}
+              className={`btn ${!showAddForm && !showBulkUpload ? 'btn-primary' : 'btn-secondary'}`}
             >
-              <RefreshCw size={16} />
-              Refresh
+              <Plus size={16} />
+              Single Upload
             </button>
+            <button
+              onClick={() => {
+                setShowAddForm(false);
+                setShowBulkUpload(true);
+                setSelectedFile(null);
+              }}
+              className={`btn ${showBulkUpload ? 'btn-primary' : 'btn-secondary'}`}
+            >
+              <Upload size={16} />
+              Bulk Upload
+            </button>
+            {showBulkUpload && (
+              <button
+                onClick={downloadBulkTemplate}
+                className="btn btn-secondary"
+                style={{ marginLeft: 'auto' }}
+              >
+                <Download size={16} />
+                Download Template
+              </button>
+            )}
           </div>
         </div>
 
         {/* Upload Section */}
-        {!showAddForm ? (
+        {!showAddForm && !showBulkUpload ? (
           <div className="upload-section">
             <div {...getRootProps()} className={`dropzone ${isDragActive ? 'active' : ''}`}>
               <input {...getInputProps()} />
@@ -194,6 +389,161 @@ const AdminPanel = () => {
                 </button>
               </div>
             </div>
+          </div>
+        ) : showBulkUpload ? (
+          <div className="bulk-upload-section">
+            <h3 style={{ marginBottom: '1rem', color: '#2d3748' }}>Bulk Upload Faces</h3>
+
+            {/* Bulk Upload Dropzone */}
+            <div {...getBulkRootProps()} className={`dropzone ${isBulkDragActive ? 'active' : ''}`} style={{ marginBottom: '2rem' }}>
+              <input {...getBulkInputProps()} />
+              <div className="dropzone-content">
+                <Upload className="dropzone-icon" />
+                <p className="dropzone-text">
+                  {isBulkDragActive ? 'Drop the images here' : 'Drag & drop multiple images here'}
+                </p>
+                <p className="dropzone-subtext">
+                  or click to select files (max 10MB each)
+                </p>
+                <button type="button" className="btn btn-primary" style={{ marginTop: '1rem' }}>
+                  <Upload size={16} />
+                  Select Multiple Images
+                </button>
+              </div>
+            </div>
+
+            {/* Bulk Files List */}
+            {bulkFiles.length > 0 && (
+              <div style={{ marginBottom: '2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <h4>Files to Upload ({bulkFiles.length})</h4>
+                  <div style={{ display: 'flex', gap: '1rem' }}>
+                    <button
+                      onClick={processBulkUpload}
+                      className="btn btn-primary"
+                      disabled={uploading || bulkFiles.every(f => f.status !== 'pending')}
+                    >
+                      {uploading ? 'Uploading...' : 'Upload All'}
+                    </button>
+                    <button
+                      onClick={clearBulkUpload}
+                      className="btn btn-secondary"
+                      disabled={uploading}
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                  {bulkFiles.map((fileData) => (
+                    <div key={fileData.id} style={{
+                      padding: '1rem',
+                      borderBottom: '1px solid #e2e8f0',
+                      background: fileData.status === 'success' ? '#f0fff4' :
+                                 fileData.status === 'error' ? '#fef2f2' :
+                                 fileData.status === 'uploading' ? '#fefcbf' : '#ffffff'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        {/* File Preview */}
+                        <img
+                          src={URL.createObjectURL(fileData.file)}
+                          alt="Preview"
+                          style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '4px' }}
+                        />
+
+                        {/* File Info and Form */}
+                        <div style={{ flex: 1 }}>
+                          <div className="grid grid-3" style={{ gap: '0.5rem', marginBottom: '0.5rem' }}>
+                            <input
+                              type="text"
+                              placeholder="Name *"
+                              value={fileData.name}
+                              onChange={(e) => updateBulkFileData(fileData.id, 'name', e.target.value)}
+                              disabled={fileData.status !== 'pending'}
+                              style={{ padding: '0.5rem', border: '1px solid #e2e8f0', borderRadius: '4px' }}
+                            />
+                            <input
+                              type="text"
+                              placeholder="Employee ID"
+                              value={fileData.employee_id}
+                              onChange={(e) => updateBulkFileData(fileData.id, 'employee_id', e.target.value)}
+                              disabled={fileData.status !== 'pending'}
+                              style={{ padding: '0.5rem', border: '1px solid #e2e8f0', borderRadius: '4px' }}
+                            />
+                            <input
+                              type="text"
+                              placeholder="Department"
+                              value={fileData.department}
+                              onChange={(e) => updateBulkFileData(fileData.id, 'department', e.target.value)}
+                              disabled={fileData.status !== 'pending'}
+                              style={{ padding: '0.5rem', border: '1px solid #e2e8f0', borderRadius: '4px' }}
+                            />
+                          </div>
+                          <div className="grid grid-3" style={{ gap: '0.5rem' }}>
+                            <input
+                              type="text"
+                              placeholder="Position"
+                              value={fileData.position}
+                              onChange={(e) => updateBulkFileData(fileData.id, 'position', e.target.value)}
+                              disabled={fileData.status !== 'pending'}
+                              style={{ padding: '0.5rem', border: '1px solid #e2e8f0', borderRadius: '4px' }}
+                            />
+                            <input
+                              type="email"
+                              placeholder="Email"
+                              value={fileData.email}
+                              onChange={(e) => updateBulkFileData(fileData.id, 'email', e.target.value)}
+                              disabled={fileData.status !== 'pending'}
+                              style={{ padding: '0.5rem', border: '1px solid #e2e8f0', borderRadius: '4px' }}
+                            />
+                            <input
+                              type="tel"
+                              placeholder="Phone"
+                              value={fileData.phone}
+                              onChange={(e) => updateBulkFileData(fileData.id, 'phone', e.target.value)}
+                              disabled={fileData.status !== 'pending'}
+                              style={{ padding: '0.5rem', border: '1px solid #e2e8f0', borderRadius: '4px' }}
+                            />
+                          </div>
+
+                          {/* Status and Error */}
+                          <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              {fileData.status === 'success' && <CheckCircle size={16} color="#10b981" />}
+                              {fileData.status === 'error' && <AlertCircle size={16} color="#ef4444" />}
+                              {fileData.status === 'uploading' && <div className="loading-spinner" style={{ width: '16px', height: '16px' }}></div>}
+                              <span style={{
+                                fontSize: '0.875rem',
+                                color: fileData.status === 'success' ? '#10b981' :
+                                       fileData.status === 'error' ? '#ef4444' :
+                                       fileData.status === 'uploading' ? '#f59e0b' : '#6b7280'
+                              }}>
+                                {fileData.status === 'pending' && 'Ready to upload'}
+                                {fileData.status === 'uploading' && 'Uploading...'}
+                                {fileData.status === 'success' && 'Uploaded successfully'}
+                                {fileData.status === 'error' && `Error: ${fileData.error}`}
+                              </span>
+                            </div>
+
+                            {fileData.status === 'pending' && (
+                              <button
+                                onClick={() => removeBulkFile(fileData.id)}
+                                className="btn btn-secondary"
+                                style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                              >
+                                <X size={12} />
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="add-face-form">
@@ -407,6 +757,14 @@ const AdminPanel = () => {
             </div>
           )}
         </div>
+
+        {/* Export Modal */}
+        <ExportModal
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          data={null}
+          type="database"
+        />
       </div>
     </div>
   );

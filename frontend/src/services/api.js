@@ -66,6 +66,15 @@ export const apiService = {
 
     // Delete known face
     deleteFace: (faceId) => api.delete(`/admin/faces/${faceId}`),
+
+    // Bulk upload faces
+    bulkUploadFaces: (formData) => {
+      return api.post('/admin/bulk-upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+    },
   },
 
   // Face recognition APIs
@@ -81,6 +90,54 @@ export const apiService = {
 
     // Get recognition history
     getHistory: (limit = 50) => api.get(`/recognition-history?limit=${limit}`),
+  },
+
+  // Camera APIs
+  camera: {
+    // Process captured image from camera
+    captureImage: (data) => {
+      return api.post('/camera/capture', data, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    },
+
+    // Process stream frame for real-time recognition
+    processStreamFrame: (data) => {
+      return api.post('/camera/stream-frame', data, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    },
+  },
+
+  // Export APIs
+  export: {
+    // Export recognition results
+    exportResults: (data) => {
+      return api.post('/export/results', data, {
+        responseType: 'blob',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    },
+
+    // Export face database
+    exportDatabase: (format = 'json') => {
+      return api.get(`/export/database?format=${format}`, {
+        responseType: 'blob',
+      });
+    },
+
+    // Download image
+    downloadImage: (imagePath) => {
+      return api.get(`/download/image/${imagePath}`, {
+        responseType: 'blob',
+      });
+    },
   },
 
   // Image serving

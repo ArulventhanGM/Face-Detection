@@ -1,9 +1,10 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  Users, 
-  Camera, 
+import {
+  Home,
+  Users,
+  Camera,
+  Video,
   History,
   Activity
 } from 'lucide-react';
@@ -15,6 +16,7 @@ const Navigation = () => {
     { path: '/dashboard', label: 'Dashboard', icon: Home },
     { path: '/admin', label: 'Admin Panel', icon: Users },
     { path: '/recognize', label: 'Face Recognition', icon: Camera },
+    { path: '/camera', label: 'Camera Recognition', icon: Video },
     { path: '/history', label: 'History', icon: History },
   ];
 
