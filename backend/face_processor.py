@@ -186,24 +186,28 @@ class FaceProcessor:
 
     @performance_monitor
     def recognize_faces_in_image(self, image_path: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
-        """Recognize faces in a test image with enhanced performance and accuracy"""
+        """Recognize faces in a test image using LBPH with enhanced performance and accuracy"""
         start_time = time.time()
 
         try:
-            # Preprocess image
-            image, error = self._preprocess_image(image_path)
-            if error:
-                return None, error
+            # Load and preprocess image
+            image = cv2.imread(image_path)
+            if image is None:
+                return None, "Could not load image"
 
-            # Check if we have any known faces to compare against
-            if len(self.known_face_encodings) == 0:
-                self.logger.warning("No known faces in database for comparison")
+            # Convert to grayscale for face detection
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-            # Find face locations with optimized settings
-            face_locations = face_recognition.face_locations(
-                image,
-                model=self.face_detection_model,
-                number_of_times_to_upsample=1
+            # Check if we have trained recognizer
+            if not self.is_trained:
+                self.logger.warning("LBPH recognizer not trained - no known faces in database")
+
+            # Detect faces using Haar cascade
+            face_locations = self.face_cascade.detectMultiScale(
+                gray,
+                scaleFactor=1.1,
+                minNeighbors=5,
+                minSize=(30, 30)
             )
 
             if len(face_locations) == 0:
@@ -221,18 +225,13 @@ class FaceProcessor:
                 self.logger.warning(f"Too many faces detected ({len(face_locations)}), processing first 50")
                 face_locations = face_locations[:50]
 
-            # Get face encodings
-            face_encodings = face_recognition.face_encodings(
-                image,
-                face_locations,
-                num_jitters=1  # Reduced for performance
-            )
-
             recognized_faces = []
 
             # Process each detected face
-            for i, face_encoding in enumerate(face_encodings):
-                face_info = self._match_face(face_encoding, face_locations[i], i)
+            for i, (x, y, w, h) in enumerate(face_locations):
+                # Convert OpenCV rectangle to face_recognition format (top, right, bottom, left)
+                face_location = (y, x + w, y + h, x)
+                face_info = self._match_face_lbph(gray, (x, y, w, h), face_location, i)
                 recognized_faces.append(face_info)
 
             processing_time = time.time() - start_time
@@ -245,8 +244,8 @@ class FaceProcessor:
                 'processing_time': round(processing_time, 3),
                 'image_path': image_path,
                 'image_dimensions': f"{image.shape[1]}x{image.shape[0]}",
-                'detection_model': self.face_detection_model,
-                'recognition_tolerance': self.face_recognition_tolerance
+                'detection_model': 'haar_cascade',
+                'recognition_tolerance': self.confidence_threshold
             }
 
             # Save to history
@@ -271,46 +270,47 @@ class FaceProcessor:
             self.logger.error(f"Error recognizing faces in {image_path}: {str(e)}")
             return None, f"Error processing image: {str(e)}"
 
-    def _match_face(self, face_encoding: np.ndarray, face_location: Tuple[int, int, int, int], face_index: int) -> Dict[str, Any]:
-        """Match a face encoding against known faces"""
+    def _match_face_lbph(self, gray_image: np.ndarray, face_rect: Tuple[int, int, int, int],
+                        face_location: Tuple[int, int, int, int], face_index: int) -> Dict[str, Any]:
+        """Match a face using LBPH recognizer"""
         try:
-            if len(self.known_face_encodings) == 0:
-                # No known faces to compare against
+            if not self.is_trained:
                 return self._create_unknown_face_info(face_location, face_index)
 
-            # Compare with known faces
-            matches = face_recognition.compare_faces(
-                self.known_face_encodings,
-                face_encoding,
-                tolerance=self.face_recognition_tolerance
-            )
+            x, y, w, h = face_rect
 
-            face_distances = face_recognition.face_distance(
-                self.known_face_encodings,
-                face_encoding
-            )
+            # Extract face region
+            face_roi = gray_image[y:y+h, x:x+w]
 
-            # Find best match
-            best_match_index = np.argmin(face_distances)
-            best_distance = face_distances[best_match_index]
+            # Resize to standard size
+            face_resized = cv2.resize(face_roi, self.face_size)
 
-            if matches[best_match_index] and best_distance <= self.face_recognition_tolerance:
+            # Apply histogram equalization
+            face_equalized = cv2.equalizeHist(face_resized)
+
+            # Predict using LBPH recognizer
+            label, confidence = self.face_recognizer.predict(face_equalized)
+
+            # Check if confidence is within threshold
+            if confidence <= self.confidence_threshold and label < len(self.known_face_metadata):
                 # Face recognized
-                metadata = self.known_face_metadata[best_match_index].copy()
-                metadata['confidence'] = self._calculate_confidence_score(best_distance)
-                metadata['face_location'] = face_location  # (top, right, bottom, left)
-                metadata['face_distance'] = round(float(best_distance), 4)
+                metadata = self.known_face_metadata[label].copy()
+                metadata['confidence'] = self._calculate_confidence_score(confidence)
+                metadata['face_location'] = face_location
+                metadata['lbph_confidence'] = round(float(confidence), 4)
                 metadata['face_index'] = face_index
                 return metadata
             else:
                 # Unknown face
-                return self._create_unknown_face_info(face_location, face_index, best_distance)
+                return self._create_unknown_face_info(face_location, face_index, confidence)
 
         except Exception as e:
             self.logger.error(f"Error matching face {face_index}: {str(e)}")
             return self._create_unknown_face_info(face_location, face_index)
 
-    def _create_unknown_face_info(self, face_location: Tuple[int, int, int, int], face_index: int, distance: float = None) -> Dict[str, Any]:
+
+
+    def _create_unknown_face_info(self, face_location: Tuple[int, int, int, int], face_index: int, lbph_confidence: float = None) -> Dict[str, Any]:
         """Create face info for unknown faces"""
         return {
             'id': None,
@@ -322,7 +322,7 @@ class FaceProcessor:
             'phone': 'N/A',
             'confidence': 0.0,
             'face_location': face_location,
-            'face_distance': round(float(distance), 4) if distance is not None else None,
+            'lbph_confidence': round(float(lbph_confidence), 4) if lbph_confidence is not None else None,
             'face_index': face_index,
             'image_path': None
         }
@@ -473,30 +473,36 @@ class FaceProcessor:
             return None
     
     def refresh_known_faces(self) -> int:
-        """Refresh the known faces cache"""
+        """Refresh the known faces cache and retrain LBPH recognizer"""
         self.load_known_faces()
-        self.logger.info(f"Refreshed known faces cache: {len(self.known_face_encodings)} faces loaded")
-        return len(self.known_face_encodings)
+        face_count = len(self.known_face_metadata)
+        self.logger.info(f"Refreshed known faces cache: {face_count} faces loaded, trained: {self.is_trained}")
+        return face_count
 
     def get_system_info(self) -> Dict[str, Any]:
         """Get system information for debugging and monitoring"""
         return {
-            'known_faces_count': len(self.known_face_encodings),
-            'face_detection_model': self.face_detection_model,
-            'recognition_tolerance': self.face_recognition_tolerance,
+            'known_faces_count': len(self.known_face_metadata),
+            'face_detection_model': 'haar_cascade',
+            'recognition_algorithm': 'LBPH',
+            'confidence_threshold': self.confidence_threshold,
             'max_image_size': self.max_image_size,
-            'face_recognition_available': True
+            'face_size': self.face_size,
+            'is_trained': self.is_trained,
+            'lbph_available': hasattr(cv2, 'face') and hasattr(cv2.face, 'LBPHFaceRecognizer_create')
         }
 
     def update_settings(self, **kwargs) -> None:
         """Update face processor settings"""
-        if 'tolerance' in kwargs:
-            self.face_recognition_tolerance = float(kwargs['tolerance'])
-            self.logger.info(f"Updated recognition tolerance to {self.face_recognition_tolerance}")
+        if 'confidence_threshold' in kwargs:
+            self.confidence_threshold = float(kwargs['confidence_threshold'])
+            self.logger.info(f"Updated LBPH confidence threshold to {self.confidence_threshold}")
 
-        if 'detection_model' in kwargs and kwargs['detection_model'] in ['hog', 'cnn']:
-            self.face_detection_model = kwargs['detection_model']
-            self.logger.info(f"Updated detection model to {self.face_detection_model}")
+        if 'face_size' in kwargs:
+            self.face_size = tuple(kwargs['face_size'])
+            self.logger.info(f"Updated face size to {self.face_size}")
+            # Need to retrain with new face size
+            self.load_known_faces()
 
         if 'max_image_size' in kwargs:
             self.max_image_size = tuple(kwargs['max_image_size'])

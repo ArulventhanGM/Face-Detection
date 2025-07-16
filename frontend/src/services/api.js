@@ -75,6 +75,18 @@ export const apiService = {
         },
       });
     },
+
+    // Search faces with filters
+    searchFaces: (params) => api.get('/admin/search', { params }),
+
+    // Get departments
+    getDepartments: () => api.get('/admin/departments'),
+
+    // Get positions
+    getPositions: () => api.get('/admin/positions'),
+
+    // Get face statistics
+    getStatistics: () => api.get('/admin/statistics'),
   },
 
   // Face recognition APIs
@@ -90,6 +102,12 @@ export const apiService = {
 
     // Get recognition history
     getHistory: (limit = 50) => api.get(`/recognition-history?limit=${limit}`),
+
+    // Search history with filters
+    searchHistory: (params) => api.get('/history/search', { params }),
+
+    // Get history statistics
+    getHistoryStatistics: () => api.get('/history/statistics'),
   },
 
   // Camera APIs

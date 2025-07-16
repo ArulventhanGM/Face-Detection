@@ -462,6 +462,95 @@ def bulk_upload_faces():
             error=str(e)
         ), 500
 
+@app.route('/api/admin/search', methods=['GET'])
+def search_faces():
+    """Search faces with filters and pagination"""
+    try:
+        query = request.args.get('q', '')
+        department = request.args.get('department', '')
+        position = request.args.get('position', '')
+        limit = int(request.args.get('limit', 50))
+        offset = int(request.args.get('offset', 0))
+
+        faces, total_count = KnownFace.search_faces(
+            query=query,
+            department=department,
+            position=position,
+            limit=limit,
+            offset=offset
+        )
+
+        return create_response(
+            success=True,
+            message="Search completed successfully",
+            data={
+                'faces': faces,
+                'total_count': total_count,
+                'limit': limit,
+                'offset': offset,
+                'has_more': offset + limit < total_count
+            }
+        )
+
+    except Exception as e:
+        log_activity("ERROR", f"Error searching faces: {str(e)}")
+        return create_response(
+            success=False,
+            message="Error searching faces",
+            error=str(e)
+        ), 500
+
+@app.route('/api/admin/departments', methods=['GET'])
+def get_departments():
+    """Get all unique departments"""
+    try:
+        departments = KnownFace.get_departments()
+        return create_response(
+            success=True,
+            message="Departments retrieved successfully",
+            data=departments
+        )
+    except Exception as e:
+        return create_response(
+            success=False,
+            message="Error retrieving departments",
+            error=str(e)
+        ), 500
+
+@app.route('/api/admin/positions', methods=['GET'])
+def get_positions():
+    """Get all unique positions"""
+    try:
+        positions = KnownFace.get_positions()
+        return create_response(
+            success=True,
+            message="Positions retrieved successfully",
+            data=positions
+        )
+    except Exception as e:
+        return create_response(
+            success=False,
+            message="Error retrieving positions",
+            error=str(e)
+        ), 500
+
+@app.route('/api/admin/statistics', methods=['GET'])
+def get_face_statistics():
+    """Get face database statistics"""
+    try:
+        stats = KnownFace.get_statistics()
+        return create_response(
+            success=True,
+            message="Statistics retrieved successfully",
+            data=stats
+        )
+    except Exception as e:
+        return create_response(
+            success=False,
+            message="Error retrieving statistics",
+            error=str(e)
+        ), 500
+
 @app.route('/api/admin/faces/<int:face_id>', methods=['DELETE'])
 def delete_known_face(face_id):
     """Delete a known face"""
@@ -603,6 +692,63 @@ def get_recognition_history():
         return create_response(
             success=False,
             message="Error retrieving recognition history",
+            error=str(e)
+        ), 500
+
+@app.route('/api/history/search', methods=['GET'])
+def search_history():
+    """Search recognition history with filters and pagination"""
+    try:
+        start_date = request.args.get('start_date', '')
+        end_date = request.args.get('end_date', '')
+        min_faces = int(request.args.get('min_faces', 0))
+        max_faces = int(request.args.get('max_faces', 999))
+        limit = int(request.args.get('limit', 50))
+        offset = int(request.args.get('offset', 0))
+
+        history, total_count = RecognitionHistory.search_history(
+            start_date=start_date,
+            end_date=end_date,
+            min_faces=min_faces,
+            max_faces=max_faces,
+            limit=limit,
+            offset=offset
+        )
+
+        return create_response(
+            success=True,
+            message="History search completed successfully",
+            data={
+                'history': history,
+                'total_count': total_count,
+                'limit': limit,
+                'offset': offset,
+                'has_more': offset + limit < total_count
+            }
+        )
+
+    except Exception as e:
+        log_activity("ERROR", f"Error searching history: {str(e)}")
+        return create_response(
+            success=False,
+            message="Error searching history",
+            error=str(e)
+        ), 500
+
+@app.route('/api/history/statistics', methods=['GET'])
+def get_history_statistics():
+    """Get recognition history statistics"""
+    try:
+        stats = RecognitionHistory.get_statistics()
+        return create_response(
+            success=True,
+            message="History statistics retrieved successfully",
+            data=stats
+        )
+    except Exception as e:
+        return create_response(
+            success=False,
+            message="Error retrieving history statistics",
             error=str(e)
         ), 500
 
