@@ -151,7 +151,10 @@ FaceDetection/
    npm install
    ```
 
-3. Start the React development server:
+   
+   > **Note**: You may see npm deprecation warnings during installation. These are related to dependencies used by Create React App and other libraries, and can be safely ignored for this project.
+
+4. Start the React development server:
    ```bash
    npm start
    ```
